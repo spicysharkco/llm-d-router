@@ -608,7 +608,8 @@ func extractUsage(responseBytes []byte) (*fwkrh.Usage, error) {
 //	event: response.completed
 //	data: {"response":{"usage":{"input_tokens":31,..},...},"type":"response.completed"}
 //
-// It extracts usage from events with type="response.completed" or "speech.audio.done".
+// It extracts usage from events with type="response.completed", "response.incomplete",
+// "response.failed" or "speech.audio.done".
 func extractUsageStreaming(responseBytes []byte) *fwkrh.Usage {
 	lines := bytes.SplitSeq(responseBytes, []byte("\n"))
 	for line := range lines {
@@ -644,13 +645,23 @@ func extractUsageStreaming(responseBytes []byte) *fwkrh.Usage {
 			}
 		}
 		// Responses API streaming format
-		if len(streamResponse.Response.Usage) > 0 && streamResponse.Type == "response.completed" {
+		if len(streamResponse.Response.Usage) > 0 && isResponsesTerminalEvent(streamResponse.Type) {
 			if usage := extractRawUsage(streamResponse.Response.Usage); usage != nil {
 				return usage
 			}
 		}
 	}
 	return nil
+}
+
+// isResponsesTerminalEvent reports whether eventType ends a Responses API stream. Each terminal
+// event carries the final response object, including its usage.
+func isResponsesTerminalEvent(eventType string) bool {
+	switch eventType {
+	case "response.completed", "response.incomplete", "response.failed":
+		return true
+	}
+	return false
 }
 
 func extractRawUsage(raw json.RawMessage) *fwkrh.Usage {

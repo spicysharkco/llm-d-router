@@ -1973,6 +1973,41 @@ func TestOpenAIParser_ParseResponse_Streaming(t *testing.T) {
 			},
 		},
 		{
+			name:  "ResponsesAPI incomplete event carries usage",
+			chunk: []byte("event: response.incomplete\ndata: {\"type\":\"response.incomplete\",\"sequence_number\":9,\"response\":{\"object\":\"response\",\"status\":\"incomplete\",\"incomplete_details\":{\"reason\":\"max_output_tokens\"},\"usage\":{\"input_tokens\":10,\"output_tokens\":3,\"total_tokens\":13,\"input_tokens_details\":{\"cached_tokens\":4}}}}\n\n"),
+			want: &fwkrh.ParsedResponse{
+				Usage: &fwkrh.Usage{
+					PromptTokens:     10,
+					CompletionTokens: 3,
+					TotalTokens:      13,
+					PromptTokenDetails: &fwkrh.PromptTokenDetails{
+						CachedTokens: 4,
+					},
+				},
+				StreamedEvents: 1,
+			},
+		},
+		{
+			name:  "ResponsesAPI failed event carries usage",
+			chunk: []byte("event: response.failed\ndata: {\"type\":\"response.failed\",\"sequence_number\":9,\"response\":{\"object\":\"response\",\"status\":\"failed\",\"usage\":{\"input_tokens\":10,\"output_tokens\":2,\"total_tokens\":12}}}\n\n"),
+			want: &fwkrh.ParsedResponse{
+				Usage: &fwkrh.Usage{
+					PromptTokens:     10,
+					CompletionTokens: 2,
+					TotalTokens:      12,
+				},
+				StreamedEvents: 1,
+			},
+		},
+		{
+			name:  "ResponsesAPI failed event with null usage returns nil",
+			chunk: []byte("event: response.failed\ndata: {\"type\":\"response.failed\",\"response\":{\"status\":\"failed\",\"usage\":null}}\n\n"),
+			want: &fwkrh.ParsedResponse{
+				Usage:          nil,
+				StreamedEvents: 1,
+			},
+		},
+		{
 			name:  "ResponsesAPI with multiple events extracts from completed",
 			chunk: []byte("event: response.output_text.delta\ndata: {\"delta\":\"Hello\",\"type\":\"response.output_text.delta\"}\n\nevent: response.completed\ndata: {\"response\":{\"usage\":{\"input_tokens\":39,\"output_tokens\":10,\"total_tokens\":49}},\"type\":\"response.completed\"}"),
 			want: &fwkrh.ParsedResponse{
